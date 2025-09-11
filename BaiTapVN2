@@ -1,4 +1,3 @@
-//LapTrinhTrenWin_Bai2VeNha
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,13 +11,13 @@ class Program
         Console.OutputEncoding = Encoding.UTF8;
         List<Student> students = new List<Student>
         {
-            new Student(1, "Loc", 18),
-            new Student(2, "Son", 13),
+            new Student(1, "Lộc", 18),
+            new Student(2, "Sơn", 13),
             new Student(3, "Nam", 16),
-            new Student(4, "Loi", 17),
+            new Student(4, "Lợi", 17),
             new Student(5, "Ba", 15),
-            new Student(6, "Tuan", 19),
-            new Student(7, "Phuoc", 16),
+            new Student(6, "Tuấn", 19),
+            new Student(7, "Phước", 16),
             new Student(8, "Khang", 20),
             new Student(9, "Anh", 18)
         };
@@ -58,18 +57,20 @@ class Program
     }
 }
 public class Student
+{
+    public int MaSo { get; set; }   
+    public string Name { get; set; }
+    public int Age { get; set; }
+
+    public Student(int maso, string name, int age) 
     {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public int Age { get; set; }
-        public Student(int id, string name, int age)
-        {
-            Id = id;
-            Name = name;
-            Age = age;
-        }
-        public override string ToString()
-        {
-            return $"Id: {Id}, Tên: {Name}, Tuổi: {Age}";
-        }
+        MaSo = maso;
+        Name = name;
+        Age = age;
     }
+
+    public override string ToString()
+    {
+        return $"Mã số: {MaSo}, Tên: {Name}, Tuổi: {Age}"; 
+    }
+}
