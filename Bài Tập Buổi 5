@@ -1,0 +1,236 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Drawing.Text;
+
+
+namespace test_menu
+{
+    public partial class Form1 : Form
+    {
+
+        public Form1()
+        {
+            InitializeComponent();
+        }
+        private string currentFilePath = string.Empty;
+        private void taToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            richTextBox1.Clear();
+
+            currentFilePath = string.Empty;
+
+
+            if (toolStripComboBox1.Items.Contains("Tahoma"))
+            {
+                toolStripComboBox1.SelectedItem = "Tahoma";
+            }
+            toolStripComboBox2.SelectedItem = "14";
+
+            try
+            {
+                richTextBox1.Font = new Font("Tahoma", 14, FontStyle.Regular);
+            }
+            catch
+            {
+                richTextBox1.Font = new Font(toolStripComboBox1.SelectedItem.ToString(), 14, FontStyle.Regular);
+            }
+
+
+            MessageBox.Show("Đã tạo văn bản mới thành công.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+
+        private void richTextBox1_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            try
+            {
+                InstalledFontCollection fonts = new InstalledFontCollection();
+                foreach (FontFamily font in fonts.Families)
+                {
+                    toolStripComboBox1.Items.Add(font.Name);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khi tải danh sách Font: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+
+            toolStripComboBox2.Items.AddRange(new object[] {
+        "8", "9", "10", "11", "12", "14", "16", "18",
+        "20", "22", "24", "26", "28", "36", "48", "72"
+    });
+
+
+
+            if (toolStripComboBox1.Items.Contains("Tahoma"))
+            {
+                toolStripComboBox1.SelectedItem = "Tahoma";
+            }
+            else
+            {
+                toolStripComboBox1.SelectedIndex = 0;
+            }
+
+            toolStripComboBox2.SelectedItem = "14";
+
+            try
+            {
+                richTextBox1.Font = new Font("Tahoma", 14, FontStyle.Regular);
+            }
+            catch (Exception)
+            {
+                richTextBox1.Font = new Font(toolStripComboBox1.SelectedItem.ToString(), 14, FontStyle.Regular);
+            }
+        }
+
+        private void mởTậpTinToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog openDlg = new OpenFileDialog();
+
+            openDlg.Filter = "Rich Text Format (*.rtf)|*.rtf|Text Files (*.txt)|*.txt|All Files (*.*)|*.*";
+            openDlg.Title = "Chọn tập tin văn bản để mở";
+
+            if (openDlg.ShowDialog() == DialogResult.OK)
+            {
+                currentFilePath = openDlg.FileName;
+
+                try
+                {
+                    string extension = System.IO.Path.GetExtension(currentFilePath).ToLower();
+
+                    if (extension == ".rtf")
+                    {
+                        richTextBox1.LoadFile(currentFilePath, RichTextBoxStreamType.RichText);
+                    }
+                    else if (extension == ".txt")
+                    {
+                        richTextBox1.LoadFile(currentFilePath, RichTextBoxStreamType.PlainText);
+                    }
+                    else
+                    {
+                        richTextBox1.LoadFile(currentFilePath, RichTextBoxStreamType.PlainText);
+                    }
+
+                    MessageBox.Show($"Đã mở tập tin thành công: {System.IO.Path.GetFileName(currentFilePath)}", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Lỗi khi mở tập tin: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void lưuNộiDungToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(currentFilePath))
+            {
+                try
+                {
+                    richTextBox1.SaveFile(currentFilePath, RichTextBoxStreamType.RichText);
+
+                    MessageBox.Show("Đã lưu văn bản thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Lỗi khi lưu tập tin: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            else
+            {
+                SaveFileDialog saveDlg = new SaveFileDialog();
+
+                saveDlg.Filter = "Rich Text Format (*.rtf)|*.rtf";
+                saveDlg.Title = "Chọn nơi lưu tập tin mới";
+                saveDlg.DefaultExt = "rtf";
+
+                if (saveDlg.ShowDialog() == DialogResult.OK)
+                {
+                    try
+                    {
+                        currentFilePath = saveDlg.FileName;
+
+                        richTextBox1.SaveFile(currentFilePath, RichTextBoxStreamType.RichText);
+
+                        MessageBox.Show("Đã lưu văn bản mới thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Lỗi khi lưu tập tin: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+        }
+
+        private void toolStripButton4_Click(object sender, EventArgs e)
+        {
+            ToggleStyle(FontStyle.Italic);
+        }
+
+        private void toolStripButton5_Click(object sender, EventArgs e)
+        {
+            ToggleStyle(FontStyle.Underline);
+        }
+        private void ToggleStyle(FontStyle style)
+        {
+            Font currentFont = richTextBox1.SelectionFont;
+
+            if (currentFont == null)
+            {
+                currentFont = richTextBox1.Font;
+            }
+
+            FontStyle newFontStyle;
+
+            if (currentFont.Style.HasFlag(style))
+            {
+                newFontStyle = currentFont.Style & ~style;
+            }
+            else
+            {
+                newFontStyle = currentFont.Style | style;
+            }
+
+            richTextBox1.SelectionFont = new Font(currentFont, newFontStyle);
+        }
+
+        private void Đậm_Click(object sender, EventArgs e)
+        {
+            ToggleStyle(FontStyle.Bold);
+
+        }
+
+        private void địnhToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            FontDialog fontDlg = new FontDialog();
+
+            fontDlg.ShowColor = true;
+            fontDlg.ShowEffects = true;
+            fontDlg.Font = richTextBox1.SelectionFont ?? richTextBox1.Font;
+            fontDlg.Color = richTextBox1.SelectionColor;
+
+            if (fontDlg.ShowDialog() == DialogResult.OK)
+            {
+                richTextBox1.SelectionColor = fontDlg.Color;
+                richTextBox1.SelectionFont = fontDlg.Font;
+            }
+        }
+    }
+}
+
+    
+
+    
+
