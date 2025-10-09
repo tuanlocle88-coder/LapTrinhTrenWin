@@ -1,0 +1,339 @@
+using System;
+using System.Data;
+using System.Data.SqlClient;
+using System.Windows.Forms;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LTTW
+{
+    public partial class Form1 : Form
+    {
+        string connectionString = "Data Source=LOC;Initial Catalog=QLSV;Integrated Security=True";
+
+        public Form1()
+        {
+            InitializeComponent();
+
+            dgvSinhVien.ReadOnly = true;
+        }
+
+        private void ClearInputFields()
+        {
+            mssv.Clear();
+            hoten.Clear();
+            dtb.Clear();
+
+            Faculty.SelectedIndex = 0;
+        }
+
+        private void dataGridView1_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0) return;
+
+            try
+            {
+                DataGridViewRow row = dgvSinhVien.Rows[e.RowIndex];
+
+                mssv.Text = row.Cells["StudentID"].Value.ToString();
+                hoten.Text = row.Cells["FullName"].Value.ToString();
+                dtb.Text = row.Cells["AverageScore"].Value.ToString();
+
+                object facultyIDValue = row.Cells["FacultyID"].Value;
+
+                if (facultyIDValue != null && facultyIDValue != DBNull.Value)
+                {
+                    Faculty.SelectedValue = facultyIDValue;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khi điền dữ liệu sinh viên lên ô nhập: " + ex.Message);
+            }
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            LoadKhoa();
+        }
+
+        private void LoadKhoa()
+        {
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    string query = "SELECT FacultyID, FacultyName FROM Faculty";
+                    SqlDataAdapter da = new SqlDataAdapter(query, conn);
+                    DataTable dt = new DataTable();
+                    da.Fill(dt);
+
+                    DataRow allRow = dt.NewRow();
+                    allRow["FacultyID"] = DBNull.Value;
+                    allRow["FacultyName"] = "Tất cả";
+                    dt.Rows.InsertAt(allRow, 0);
+
+                    Faculty.DataSource = dt;
+                    Faculty.DisplayMember = "FacultyName";
+                    Faculty.ValueMember = "FacultyID";
+
+                    string defaultFacultyName = "Công nghệ thông tin";
+                    int defaultIndex = 0;
+                    string defaultFacultyID = null;
+
+                    for (int i = 0; i < dt.Rows.Count; i++)
+                    {
+                        if (dt.Rows[i]["FacultyName"].ToString().Equals(defaultFacultyName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            defaultIndex = i;
+                            defaultFacultyID = dt.Rows[i]["FacultyID"].ToString();
+                            break;
+                        }
+                    }
+
+                    Faculty.SelectedIndex = defaultIndex;
+
+                    LoadSinhVienTheoKhoa(defaultFacultyID);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khi tải khoa: " + ex.Message);
+            }
+        }
+
+        private void LoadSinhVienTheoKhoa(string maKhoa)
+        {
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    string query;
+
+                    SqlCommand cmd = new SqlCommand();
+                    cmd.Connection = conn;
+
+                    if (string.IsNullOrEmpty(maKhoa))
+                    {
+                        query = "SELECT StudentID, FullName, AverageScore, FacultyID FROM Student ORDER BY FullName";
+                    }
+                    else
+                    {
+                        query = "SELECT StudentID, FullName, AverageScore, FacultyID FROM Student WHERE FacultyID = @FacultyID ORDER BY FullName";
+                        cmd.Parameters.AddWithValue("@FacultyID", maKhoa);
+                    }
+
+                    cmd.CommandText = query;
+                    SqlDataAdapter da = new SqlDataAdapter(cmd);
+
+                    DataTable dt = new DataTable();
+                    da.Fill(dt);
+
+                    dgvSinhVien.DataSource = dt;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khi tải sinh viên: " + ex.Message);
+            }
+        }
+
+        private void cbKhoa_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            string selectedMaKhoa = Faculty.SelectedValue?.ToString();
+            LoadSinhVienTheoKhoa(selectedMaKhoa);
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(mssv.Text.Trim()) ||
+                string.IsNullOrEmpty(hoten.Text.Trim()) ||
+                string.IsNullOrEmpty(dtb.Text.Trim()))
+            {
+                MessageBox.Show("Vui lòng nhập đầy đủ thông tin!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (mssv.Text.Trim().Length != 10)
+            {
+                MessageBox.Show("Mã số sinh viên phải có 10 kí tự!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    conn.Open();
+
+                    string checkQuery = "SELECT COUNT(*) FROM Student WHERE StudentID = @StudentID";
+                    SqlCommand checkCmd = new SqlCommand(checkQuery, conn);
+                    checkCmd.Parameters.AddWithValue("@StudentID", mssv.Text.Trim());
+
+                    int count = (int)checkCmd.ExecuteScalar();
+
+                    if (count > 0)
+                    {
+                        MessageBox.Show("Mã số sinh viên này đã tồn tại, không thể thêm mới!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        conn.Close();
+                        return;
+                    }
+
+                    string query = "INSERT INTO Student (StudentID, FullName, AverageScore, FacultyID) VALUES (@StudentID, @FullName, @AverageScore, @FacultyID)";
+                    SqlCommand cmd = new SqlCommand(query, conn);
+                    cmd.Parameters.AddWithValue("@StudentID", mssv.Text.Trim());
+                    cmd.Parameters.AddWithValue("@FullName", hoten.Text.Trim());
+                    cmd.Parameters.AddWithValue("@AverageScore", Convert.ToDouble(dtb.Text.Trim()));
+
+                    object facultyID = Faculty.SelectedValue;
+                    if (facultyID == null || facultyID == DBNull.Value)
+                    {
+                        MessageBox.Show("Vui lòng chọn Khoa hợp lệ.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        conn.Close();
+                        return;
+                    }
+                    cmd.Parameters.AddWithValue("@FacultyID", facultyID);
+
+                    cmd.ExecuteNonQuery();
+                    conn.Close();
+
+                    MessageBox.Show("Thêm mới dữ liệu thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    LoadSinhVienTheoKhoa(Faculty.SelectedValue?.ToString());
+                    ClearInputFields();
+                }
+            }
+            catch (FormatException)
+            {
+                MessageBox.Show("Điểm trung bình (DTB) không đúng định dạng số.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khi thêm sinh viên: " + ex.Message);
+            }
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(mssv.Text.Trim()) ||
+                string.IsNullOrEmpty(hoten.Text.Trim()) ||
+                string.IsNullOrEmpty(dtb.Text.Trim()))
+            {
+                MessageBox.Show("Vui lòng nhập đầy đủ thông tin!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (mssv.Text.Trim().Length != 10)
+            {
+                MessageBox.Show("Mã số sinh viên phải có 10 kí tự!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    string query = "UPDATE Student SET FullName = @FullName, AverageScore = @AverageScore, FacultyID = @FacultyID WHERE StudentID = @StudentID";
+
+                    SqlCommand cmd = new SqlCommand(query, conn);
+
+                    cmd.Parameters.AddWithValue("@FullName", hoten.Text.Trim());
+                    cmd.Parameters.AddWithValue("@AverageScore", Convert.ToDouble(dtb.Text.Trim()));
+
+                    object facultyID = Faculty.SelectedValue;
+                    if (facultyID == null || facultyID == DBNull.Value)
+                    {
+                        MessageBox.Show("Vui lòng chọn Khoa hợp lệ.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+                    cmd.Parameters.AddWithValue("@FacultyID", facultyID);
+
+                    string studentIDToUpdate = mssv.Text.Trim();
+                    cmd.Parameters.AddWithValue("@StudentID", studentIDToUpdate);
+
+                    conn.Open();
+                    int rowsAffected = cmd.ExecuteNonQuery();
+                    conn.Close();
+
+                    if (rowsAffected > 0)
+                    {
+                        MessageBox.Show("Cập nhật dữ liệu thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                        LoadSinhVienTheoKhoa(facultyID.ToString());
+                        ClearInputFields();
+                    }
+                    else
+                    {
+                        MessageBox.Show("Không tìm thấy MSSV cần sửa!", "Cảnh báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                }
+            }
+            catch (FormatException)
+            {
+                MessageBox.Show("Điểm trung bình (DTB) không đúng định dạng số.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khi sửa sinh viên: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+            string studentIDToDelete = mssv.Text.Trim();
+
+            if (string.IsNullOrEmpty(studentIDToDelete))
+            {
+                MessageBox.Show("Vui lòng chọn sinh viên hoặc nhập Mã số sinh viên (MSSV) cần xóa.", "Cảnh báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            DialogResult confirm = MessageBox.Show($"Bạn có chắc chắn muốn xóa sinh viên có MSSV: {studentIDToDelete} không?", "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+            if (confirm == DialogResult.Yes)
+            {
+                try
+                {
+                    using (SqlConnection conn = new SqlConnection(connectionString))
+                    {
+                        string query = "DELETE FROM Student WHERE StudentID = @StudentID";
+
+                        SqlCommand cmd = new SqlCommand(query, conn);
+                        cmd.Parameters.AddWithValue("@StudentID", studentIDToDelete);
+
+                        object facultyID = Faculty.SelectedValue;
+
+                        conn.Open();
+                        int rowsAffected = cmd.ExecuteNonQuery();
+                        conn.Close();
+
+                        if (rowsAffected > 0)
+                        {
+                            MessageBox.Show("Xóa sinh viên thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            LoadSinhVienTheoKhoa(facultyID?.ToString());
+                            ClearInputFields();
+                        }
+                        else
+                        {
+                            MessageBox.Show("Không tìm thấy MSSV cần xóa!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Lỗi khi xóa sinh viên: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void label1_Click(object sender, EventArgs e) { }
+        private void button4_Click(object sender, EventArgs e)
+        {
+            this.Close();
+        }
+        private void Faculty_SelectedIndexChanged(object sender, EventArgs e) { }
+    }
+}
