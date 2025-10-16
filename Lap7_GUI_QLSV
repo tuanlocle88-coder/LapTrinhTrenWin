@@ -1,0 +1,311 @@
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Windows.Forms;
+using BUS;
+using DAL.MODELS;
+
+namespace GUI
+{
+    public partial class frmQLSV : Form
+    {
+        private readonly StudentService studentService = new StudentService();
+        private readonly FacultyService facultyService = new FacultyService();
+        private string avatarFilePath = string.Empty;
+
+        public frmQLSV()
+        {
+            InitializeComponent();
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            try
+            {
+                setGridViewStyle(dgvStudent);
+                var listFacultys = facultyService.GetAll();
+                var listStudents = studentService.GetAll();
+                FillFalcultyCombobox(listFacultys);
+                BindGrid(listStudents);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        }
+
+        public void setGridViewStyle(DataGridView dgview)
+        {
+            dgview.BorderStyle = BorderStyle.None;
+            dgview.DefaultCellStyle.SelectionBackColor = Color.DarkTurquoise;
+            dgview.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
+            dgview.BackgroundColor = Color.White;
+            dgview.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        }
+
+        private void FillFalcultyCombobox(List<Faculty> listFalcultys)
+        {
+            if (listFalcultys == null || listFalcultys.Count == 0)
+            {
+                MessageBox.Show("Không có dữ liệu Khoa. Vui lòng kiểm tra kết nối DB.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            listFalcultys.Insert(0, new Faculty { FacultyID = 0, FacultyName = "-- Chọn Khoa --" });
+
+            this.cmbKhoa.DataSource = listFalcultys;
+            this.cmbKhoa.DisplayMember = "FacultyName";
+            this.cmbKhoa.ValueMember = "FacultyID";
+            this.cmbKhoa.SelectedIndex = 0;
+        }
+
+        private void BindGrid(List<Student> listStudent)
+        {
+            dgvStudent.Rows.Clear();
+            foreach (var item in listStudent)
+            {
+                int index = dgvStudent.Rows.Add();
+                dgvStudent.Rows[index].Cells[0].Value = item.StudentID;
+                dgvStudent.Rows[index].Cells[1].Value = item.FullName;
+                dgvStudent.Rows[index].Cells[2].Value = item.Faculty?.FacultyName ?? "";
+                dgvStudent.Rows[index].Cells[3].Value = item.AverageScore.ToString("0.00");
+                dgvStudent.Rows[index].Cells[4].Value = item.Major?.Name ?? "";
+            }
+        }
+
+        private void ShowAvatar(string imageName)
+        {
+            if (string.IsNullOrEmpty(imageName))
+            {
+                picAvatar.Image = null;
+                return;
+            }
+
+            string folderPath = Path.Combine(Application.StartupPath, "Images");
+            string imagePath = Path.Combine(folderPath, imageName);
+            if (File.Exists(imagePath))
+            {
+                try
+                {
+                    picAvatar.Image = Image.FromFile(imagePath);
+                    picAvatar.Refresh();
+                }
+                catch
+                {
+                    picAvatar.Image = null;
+                }
+            }
+            else
+            {
+                picAvatar.Image = null;
+            }
+        }
+
+        private void ClearData()
+        {
+            txtMSSV.Text = "";
+            txtHoTen.Text = "";
+            txtDTB.Text = "";
+            cmbKhoa.SelectedIndex = 0;
+            picAvatar.Image = null;
+            avatarFilePath = string.Empty;
+        }
+
+        private void btnThem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // Kiểm tra dữ liệu cơ bản
+                if (string.IsNullOrWhiteSpace(txtMSSV.Text) || string.IsNullOrWhiteSpace(txtHoTen.Text))
+                {
+                    MessageBox.Show("Vui lòng nhập đầy đủ Mã SV và Họ tên.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (!double.TryParse(txtDTB.Text.Trim(), out double averageScore) || averageScore < 0 || averageScore > 10)
+                {
+                    MessageBox.Show("Điểm trung bình phải từ 0 đến 10.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Kiểm tra FacultyID
+                if (cmbKhoa.SelectedValue == null || !int.TryParse(cmbKhoa.SelectedValue.ToString(), out int facultyId) || facultyId == 0)
+                {
+                    MessageBox.Show("Vui lòng chọn Khoa hợp lệ.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string studentId = txtMSSV.Text.Trim();
+
+                // Kiểm tra Insert hay Update
+                var existingStudent = studentService.FindById(studentId);
+                bool isNewStudent = existingStudent == null;
+
+                Student studentToSave = isNewStudent
+                    ? new Student
+                    {
+                        StudentID = studentId,
+                        MajorID = null,
+                        Avatar = null
+                    }
+                    : existingStudent;
+
+                // Cập nhật thông tin
+                studentToSave.FullName = txtHoTen.Text.Trim();
+                studentToSave.AverageScore = averageScore;
+                studentToSave.FacultyID = facultyId;
+
+                // Xử lý Avatar
+                if (!string.IsNullOrEmpty(avatarFilePath))
+                {
+                    string avatarFileName = SaveAvatar(avatarFilePath, studentId);
+                    if (avatarFileName != null)
+                    {
+                        studentToSave.Avatar = avatarFileName;
+                    }
+                }
+
+                studentService.InsertUpdate(studentToSave);
+
+                string message = isNewStudent ? "Thêm sinh viên thành công!" : "Cập nhật sinh viên thành công!";
+
+                BindGrid(studentService.GetAll());
+                ClearData();
+
+                MessageBox.Show(message, "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi khi lưu dữ liệu: {ex.Message}", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+       
+
+        private void btnUpload_Click(object sender, EventArgs e)
+        {
+            using (OpenFileDialog openFileDialog = new OpenFileDialog())
+            {
+                openFileDialog.Filter = "Image Files (*.jpg; *.jpeg; *.png)|*.jpg;*.jpeg;*.png";
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    avatarFilePath = openFileDialog.FileName;
+                    picAvatar.Image = Image.FromFile(avatarFilePath);
+                }
+            }
+        }
+
+        private string SaveAvatar(string sourceFilePath, string studentID)
+        {
+            try
+            {
+                string folderPath = Path.Combine(Application.StartupPath, "Images");
+                if (!Directory.Exists(folderPath))
+                    Directory.CreateDirectory(folderPath);
+
+                string fileExtension = Path.GetExtension(sourceFilePath);
+                string targetFileName = $"{studentID}{fileExtension}";
+                string targetFilePath = Path.Combine(folderPath, targetFileName);
+
+                File.Copy(sourceFilePath, targetFilePath, true);
+                return targetFileName;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi lưu ảnh: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return null;
+            }
+        }
+
+        private void btnThoat_Click(object sender, EventArgs e)
+        {
+            this.Close();
+        }
+
+        private void dgvStudent_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            try
+            {
+                if (e.RowIndex >= 0 && dgvStudent.Rows[e.RowIndex].Cells[0].Value != null)
+                {
+                    string studentID = dgvStudent.Rows[e.RowIndex].Cells[0].Value.ToString();
+                    var student = studentService.FindById(studentID);
+
+                    if (student != null)
+                    {
+                        txtMSSV.Text = student.StudentID;
+                        txtHoTen.Text = student.FullName;
+                        txtDTB.Text = student.AverageScore.ToString("0.00");
+                        cmbKhoa.SelectedValue = student.FacultyID;
+                        ShowAvatar(student.Avatar);
+                        avatarFilePath = string.Empty; // Reset avatar path
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi khi hiển thị dữ liệu: {ex.Message}", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void chkChuaDkChuyenNganh_CheckedChanged(object sender, EventArgs e)
+        {
+            var listStudents = this.chkChuaDkChuyenNganh.Checked
+                ? studentService.GetAllHasNoMajor()
+                : studentService.GetAll();
+            BindGrid(listStudents);
+        }
+
+        private void btnXoa_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (dgvStudent.SelectedRows.Count == 0)
+                {
+                    MessageBox.Show("Vui lòng chọn sinh viên cần xóa!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string studentID = dgvStudent.SelectedRows[0].Cells[0].Value.ToString();
+                var confirm = MessageBox.Show($"Bạn có chắc muốn xóa sinh viên {studentID} không?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+                if (confirm == DialogResult.Yes)
+                {
+                    // Xóa file avatar nếu tồn tại
+                    var student = studentService.FindById(studentID);
+                    if (student != null && !string.IsNullOrEmpty(student.Avatar))
+                    {
+                        string imagePath = Path.Combine(Application.StartupPath, "Images", student.Avatar);
+                        if (File.Exists(imagePath))
+                        {
+                            try { File.Delete(imagePath); }
+                            catch { /* Bỏ qua lỗi xóa file */ }
+                        }
+                    }
+
+                    studentService.Delete(studentID);
+                    BindGrid(studentService.GetAll());
+                    ClearData();
+                    MessageBox.Show("Xóa sinh viên thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi khi xóa: {ex.Message}", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void lblMSV_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void txtMSSV_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+    }
+}
