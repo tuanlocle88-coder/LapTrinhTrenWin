@@ -1,0 +1,30 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using BUS;
+using DAL.MODELS;
+
+namespace GUI
+{
+    public partial class frmDK : Form
+    {
+        private readonly StudentService studentService = new StudentService();
+        private readonly MajorService majorService = new MajorService();
+        private readonly FacultyService classService = new FacultyService();
+        public frmDK()
+        {
+            InitializeComponent();
+        }
+
+        private void frmDK_Load(object sender, EventArgs e)
+        {
+
+        }
+    }
+}
